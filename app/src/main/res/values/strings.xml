@@ -1,13 +1,16 @@
 <resources>
     <string name="app_name">RFID Go</string>
-    <string name="btn_write_epc">ZAPSAT EPC</string>
+    <string name="btn_write_epc">NAČÍST TAG A ULOŽIT</string>
     <string name="btn_write_pwd">ZAPSAT HESLO</string>
     <string name="btn_lock">ZAMKNOUT</string>
     <string name="btn_delete_last_csv">Vymazat poslední záznam</string>
     <string name="btn_delete_short">Smazat</string>
     <string name="lock_code_value">008020</string>
     <string name="workflow_sheet_title">Pokročilé</string>
-    <string name="epc_preview_label">EPC náhled</string>
+    <string name="epc_preview_label">EPC tagu (pouze čtení)</string>
+    <string name="parameters_valid">✓ Parametry připraveny k zápisu</string>
+    <string name="parameters_invalid">✗ Vyberte TUDU, výhybku a část</string>
+    <string name="record_retry_status">načtěte znovu</string>
     <string name="tudu_search_hint">Hledat TUDU…</string>
     <string name="cast_hint_prefix">Načtěte\u00A0</string>
     <string name="cast_hint_chip">čip\u00A0</string>

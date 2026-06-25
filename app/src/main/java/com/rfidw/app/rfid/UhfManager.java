@@ -228,6 +228,31 @@ public class UhfManager {
         }
     }
 
+    /** Přečte tag v dosahu (EPC + TID) bez zápisu do paměti tagu. */
+    public synchronized WriteResult readTag() {
+        WriteResult r = new WriteResult();
+        if (!ready || reader == null) {
+            r.message = "Čtečka není připravena.";
+            return r;
+        }
+        try {
+            UHFTAGInfo info = reader.inventorySingleTag();
+            if (info == null) {
+                r.message = "Tag nenalezen v dosahu.";
+                return r;
+            }
+            r.oldEpc = info.getEPC();
+            r.tid = info.getTid();
+            r.success = true;
+            r.message = "Tag načten.";
+            return r;
+        } catch (Exception e) {
+            r.success = false;
+            r.message = "Chyba čtení: " + e.getMessage();
+            return r;
+        }
+    }
+
     private static class PwdWriteAttempt {
         boolean success;
         boolean usedPresetPassword;

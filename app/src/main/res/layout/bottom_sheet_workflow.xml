@@ -12,7 +12,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- ============ EPC NÁHLED ============ -->
+        <!-- ============ EPC TAGU (pouze čtení) ============ -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -41,7 +41,7 @@
                 android:paddingTop="8dp"
                 android:paddingEnd="10dp"
                 android:paddingBottom="8dp"
-                android:text="----–----–----–----–----–----"
+                android:text="—"
                 android:textColor="#7FE0FF"
                 android:textSize="15sp"
                 android:textStyle="bold"/>
@@ -56,7 +56,7 @@
             android:text=""
             android:textSize="12sp"/>
 
-        <!-- ============ KARTA 2: Šablona EPC + zápis ============ -->
+        <!-- ============ KARTA 2: Parametry a zápis do tabulky ============ -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -69,7 +69,7 @@
                 android:id="@+id/header2"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="▸ 2. Šablona EPC a zápis"
+                android:text="▸ 2. Parametry a zápis do tabulky"
                 android:textColor="@color/primary_dark"
                 android:textSize="16sp"
                 android:textStyle="bold"/>
@@ -94,10 +94,6 @@
                     <TextView android:layout_width="0dp" android:layout_height="wrap_content"
                         android:layout_weight="2" android:text="Hodnota" android:textStyle="bold"
                         android:textColor="@color/text_muted" android:textSize="12sp"/>
-                    <TextView android:layout_width="0dp" android:layout_height="wrap_content"
-                        android:layout_weight="1.4" android:text="HEX" android:textStyle="bold"
-                        android:gravity="end"
-                        android:textColor="@color/text_muted" android:textSize="12sp"/>
                 </LinearLayout>
 
                 <include layout="@layout/row_template" android:id="@+id/row1"/>
@@ -113,35 +109,11 @@
                     android:layout_marginBottom="10dp"/>
 
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="Rozhraní zápisu" android:textStyle="bold"
+                    android:text="Výkon čtečky" android:textStyle="bold"
                     android:textColor="@color/text"/>
 
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:paddingTop="6dp">
-                    <TextView android:layout_width="0dp" android:layout_height="wrap_content"
-                        android:layout_weight="1" android:text="bank: EPC"
-                        android:textColor="@color/text" android:fontFamily="monospace"/>
-                    <TextView android:layout_width="0dp" android:layout_height="wrap_content"
-                        android:layout_weight="1" android:text="ptr: 2"
-                        android:textColor="@color/text" android:fontFamily="monospace"/>
-                    <TextView android:layout_width="0dp" android:layout_height="wrap_content"
-                        android:layout_weight="1" android:text="Len: 6"
-                        android:textColor="@color/text" android:fontFamily="monospace"/>
-                </LinearLayout>
-
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:gravity="center_vertical" android:paddingTop="8dp">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="Access pwd: " android:textColor="@color/text"/>
-                    <EditText android:id="@+id/etAccessPwd"
-                        android:layout_width="0dp" android:layout_height="wrap_content"
-                        android:layout_weight="1" android:text="00000000"
-                        android:fontFamily="monospace" android:maxLength="8"
-                        android:inputType="textCapCharacters"/>
-                </LinearLayout>
-
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:gravity="center_vertical" android:paddingTop="4dp">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="Výkon (dBm): " android:textColor="@color/text"/>
                     <EditText android:id="@+id/etPower"
@@ -361,7 +333,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:checked="true"
-                    android:text="Po zápisu EPC automaticky uložit řádek do CSV"/>
+                    android:visibility="gone"
+                    android:text="Po načtení tagu automaticky uložit řádek do CSV"/>
 
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:paddingTop="4dp">

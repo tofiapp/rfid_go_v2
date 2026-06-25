@@ -22,6 +22,8 @@ import java.util.Set;
  * Sloupce:
  *   ID_RFID ; EPC ; TID ; rok ; TUDU ; vyhybka ; cip
  *
+ * EPC = EPC přečtené z tagu (tag se nepřepisuje).
+ * Parametry (rok, TUDU, výhybka, cip) se zapisují přímo z formuláře.
  * Klíčem je ID_RFID – při zápisu stejného ID_RFID se daný řádek přepíše.
  */
 public class CsvStore {
