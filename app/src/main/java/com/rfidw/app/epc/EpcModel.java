@@ -106,6 +106,15 @@ public class EpcModel {
         return sb.toString();
     }
 
+    /** Jsou vyplněné všechny parametry pro zápis do tabulky? */
+    public boolean areParametersValid() {
+        return !safe(year).isEmpty()
+                && !safe(tudu).isEmpty()
+                && vyhybka > 0
+                && cast > 0
+                && idRfid > 0;
+    }
+
     /** Je výsledný EPC validní (24 znaků, samé hex)? */
     public boolean isValid() {
         String e = buildEpc();

@@ -99,7 +99,7 @@ public class MainActivity extends AppCompatActivity {
             scanDoneDialog, deleteConfirmDialog, lastRecordBox, card1, topBar;
     private NestedScrollView mainScroll;
     private BottomSheetBehavior<View> workflowBehavior;
-    private EditText etAccessPwd, etPower, etPwdAccess, etPwdNew, etLockAccessPwd;
+    private EditText etPower, etPwdAccess, etPwdNew, etLockAccessPwd;
     private CheckBox cbAutoCsv;
     private MaterialButtonToggleGroup powerPresetGroup;
     private Boolean powerPresetInKoleji;
@@ -166,7 +166,6 @@ public class MainActivity extends AppCompatActivity {
         mainScroll = findViewById(R.id.mainScroll);
         card1 = findViewById(R.id.card1);
         topBar = findViewById(R.id.topBar);
-        etAccessPwd = findViewById(R.id.etAccessPwd);
         etPower = findViewById(R.id.etPower);
         etPwdAccess = findViewById(R.id.etPwdAccess);
         etPwdNew = findViewById(R.id.etPwdNew);
@@ -190,10 +189,11 @@ public class MainActivity extends AppCompatActivity {
                     getString(R.string.tudu_select_status),
                     getString(R.string.power_preset_select_status),
                     "připraveno",
-                    "zapisuji EPC…",
+                    "načítám tag…",
+                    "ukládám do tabulky…",
                     "zapisuji heslo…",
                     "zamykám…",
-                    getString(R.string.epc_retry_status),
+                    getString(R.string.record_retry_status),
                     "chyba hesla",
                     "chyba zamčení",
                     "nedostupná",
@@ -843,7 +843,7 @@ public class MainActivity extends AppCompatActivity {
         }, WORKFLOW_DONE_DELAY_MS + 500);
     }
 
-    // ---------- šablona EPC ----------
+    // ---------- šablona parametrů ----------
 
     private void setupTemplateRows() {
         String[] idx = {"1", "2", "3", "4", "5", "6", "7"};
@@ -864,6 +864,9 @@ public class MainActivity extends AppCompatActivity {
             etVal.setClickable(editableValue);
             if (i == 0) etVal.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
             if (i == 5 || i == 6) etVal.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+
+            TextView tvHex = row.findViewById(R.id.tvHex);
+            if (tvHex != null) tvHex.setVisibility(View.GONE);
         }
 
         valueWatcher(0, s -> { epc.year = s; });
@@ -888,7 +891,7 @@ public class MainActivity extends AppCompatActivity {
         EditText et = rows[rowIdx].findViewById(R.id.etValue);
         et.addTextChangedListener(new SimpleWatcher(() -> {
             cb.on(et.getText().toString().trim());
-            refreshHexAndPreview();
+            refreshParameterPreview();
         }));
     }
 
@@ -900,13 +903,14 @@ public class MainActivity extends AppCompatActivity {
 
     private void refreshTemplate() {
         setValue(0, epc.year);
-        setValue(1, epc.f2Tudu14());
+        setValue(1, epc.tudu != null && epc.tudu.length() >= 4
+                ? epc.tudu.substring(0, 4) : (epc.tudu != null ? epc.tudu : ""));
         setValue(2, tuduCharOr(4));
         setValue(3, tuduCharOr(5));
         setValue(4, String.valueOf(epc.vyhybka));
         setValue(5, String.valueOf(epc.cast));
         setValue(6, String.valueOf(epc.idRfid));
-        refreshHexAndPreview();
+        refreshParameterPreview();
     }
 
     private String tuduCharOr(int idx) {
@@ -919,22 +923,28 @@ public class MainActivity extends AppCompatActivity {
         if (!et.getText().toString().equals(v)) et.setText(v);
     }
 
-    private void refreshHexAndPreview() {
-        String[] hex = {
-                epc.f1Year(), epc.f2Tudu14(), epc.f3Tudu5(), epc.f4Tudu6(),
-                epc.f5Vyhybka(), epc.f6Cast(), epc.f7IdRfid()
-        };
-        for (int i = 0; i < 7; i++) {
-            ((TextView) rows[i].findViewById(R.id.tvHex)).setText(hex[i]);
-        }
-        tvEpcPreview.setText(epc.buildEpcPreview());
-        if (epc.isValid()) {
-            tvEpcValid.setText("✓ EPC validní (24 hex znaků)");
+    private void refreshParameterPreview() {
+        if (epc.areParametersValid()) {
+            tvEpcValid.setText(getString(R.string.parameters_valid));
             tvEpcValid.setTextColor(0xFF2E7D32);
         } else {
-            tvEpcValid.setText("✗ EPC není validní – zkontrolujte hodnoty");
+            tvEpcValid.setText(getString(R.string.parameters_invalid));
             tvEpcValid.setTextColor(0xFFC62828);
         }
+    }
+
+    private void showTagEpc(String tagEpc) {
+        if (tagEpc == null || tagEpc.isEmpty()) {
+            tvEpcPreview.setText("—");
+            return;
+        }
+        String e = tagEpc.toUpperCase(Locale.ROOT);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < e.length(); i += 4) {
+            if (i > 0) sb.append('-');
+            sb.append(e, i, Math.min(i + 4, e.length()));
+        }
+        tvEpcPreview.setText(sb.toString());
     }
 
     // ---------- CSV ----------
@@ -1014,7 +1024,7 @@ public class MainActivity extends AppCompatActivity {
             onPowerPresetSelected(checkedId == R.id.btnPowerPresetKoleji);
         });
         findViewById(R.id.btnApplyPower).setOnClickListener(v -> applyPower());
-        findViewById(R.id.btnWrite).setOnClickListener(v -> doWrite());
+        findViewById(R.id.btnWrite).setOnClickListener(v -> doRecord());
         findViewById(R.id.btnWritePwd).setOnClickListener(v -> doWritePassword());
         findViewById(R.id.btnLock).setOnClickListener(v -> doLock());
         findViewById(R.id.btnExportCsv).setOnClickListener(v -> exportCsv());
@@ -1197,7 +1207,60 @@ public class MainActivity extends AppCompatActivity {
         toast("Poslední záznam vymazán");
     }
 
-    // ---------- zápis EPC ----------
+    // ---------- načtení tagu a zápis do tabulky ----------
+
+    private void doRecord() {
+        if (scanDoneAwaitingConfirm) return;
+        if (!requirePowerPreset()) {
+            if (chainWorkflow) onWorkflowFailed(getString(R.string.power_preset_required));
+            return;
+        }
+        if (!epc.areParametersValid()) {
+            toast("Vyplňte všechny parametry (TUDU, výhybka, část, ID)");
+            if (chainWorkflow) onWorkflowFailed("neúplné parametry");
+            return;
+        }
+        if (!uhf.isReady()) {
+            toast("Čtečka není připravena");
+            if (chainWorkflow) onWorkflowFailed("čtečka nedostupná");
+            return;
+        }
+        if (!chainWorkflow) {
+            setActionStatus("načítám tag…", COLOR_STATUS_BUSY);
+        }
+        tvWriteResult.setText("Načítám tag…");
+        tvWriteResult.setTextColor(0xFF5F6A76);
+
+        io.execute(() -> {
+            UhfManager.WriteResult r = uhf.readTag();
+            ui.post(() -> onRecordDone(r));
+        });
+    }
+
+    private void onRecordDone(UhfManager.WriteResult r) {
+        if (r.success) {
+            showTagEpc(r.oldEpc);
+            tvWriteResult.setTextColor(0xFF2E7D32);
+            tvWriteResult.setText("✓ " + r.message
+                    + (r.oldEpc != null ? ("\nEPC tagu: " + r.oldEpc) : "")
+                    + (r.tid != null ? ("\nTID: " + r.tid) : ""));
+
+            if (cbAutoCsv.isChecked()) saveRowToCsv(r.oldEpc, r.tid);
+
+            if (chainWorkflow) {
+                setActionStatus("zapisuji heslo…", COLOR_STATUS_BUSY);
+                doWritePassword();
+            } else {
+                onTagCycleComplete();
+                setActionStatusReady();
+            }
+        } else {
+            tvWriteResult.setTextColor(0xFFC62828);
+            tvWriteResult.setText("✗ " + r.message);
+            if (chainWorkflow) onWorkflowFailed(getString(R.string.record_retry_status));
+            else setActionStatus(getString(R.string.record_retry_status), COLOR_STATUS_ERROR);
+        }
+    }
 
     private void applyPower() {
         if (!requirePowerPreset()) return;
@@ -1235,63 +1298,6 @@ public class MainActivity extends AppCompatActivity {
         } else {
             applyPowerValue(power, false);
             setActionStatusReady();
-        }
-    }
-
-    private void doWrite() {
-        if (scanDoneAwaitingConfirm) return;
-        if (!requirePowerPreset()) {
-            if (chainWorkflow) onWorkflowFailed(getString(R.string.power_preset_required));
-            return;
-        }
-        if (!epc.isValid()) {
-            toast("EPC není validní");
-            if (chainWorkflow) onWorkflowFailed("EPC není validní");
-            return;
-        }
-        if (!uhf.isReady()) {
-            toast("Čtečka není připravena");
-            if (chainWorkflow) onWorkflowFailed("čtečka nedostupná");
-            return;
-        }
-        if (!chainWorkflow) {
-            setActionStatus("zapisuji EPC…", COLOR_STATUS_BUSY);
-        }
-        final String pwd = etAccessPwd.getText().toString().trim();
-        final String newEpc = epc.buildEpc();
-        tvWriteResult.setText("Zapisuji…");
-        tvWriteResult.setTextColor(0xFF5F6A76);
-
-        io.execute(() -> {
-            UhfManager.WriteResult r = uhf.writeEpc(pwd, newEpc);
-            ui.post(() -> onWriteDone(r, newEpc));
-        });
-    }
-
-    private void onWriteDone(UhfManager.WriteResult r, String writtenEpc) {
-        if (r.success) {
-            if (r.presetPasswordUsed != null) {
-                resetAccessPasswordFields();
-            }
-            tvWriteResult.setTextColor(0xFF2E7D32);
-            tvWriteResult.setText("✓ " + r.message
-                    + (r.oldEpc != null ? ("\nPůvodní EPC: " + r.oldEpc) : "")
-                    + (r.tid != null ? ("\nTID: " + r.tid) : ""));
-
-            if (cbAutoCsv.isChecked()) saveRowToCsv(writtenEpc, r.tid);
-
-            if (chainWorkflow) {
-                setActionStatus("zapisuji heslo…", COLOR_STATUS_BUSY);
-                doWritePassword();
-            } else {
-                onTagCycleComplete();
-                setActionStatusReady();
-            }
-        } else {
-            tvWriteResult.setTextColor(0xFFC62828);
-            tvWriteResult.setText("✗ " + r.message);
-            if (chainWorkflow) onWorkflowFailed(getString(R.string.epc_retry_status));
-            else setActionStatus(getString(R.string.epc_retry_status), COLOR_STATUS_ERROR);
         }
     }
 
@@ -1408,18 +1414,17 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void saveRowToCsv(String epc24, String tid) {
+    private void saveRowToCsv(String tagEpc, String tid) {
         if (csvStore == null) return;
         try {
-            EpcModel.Decoded d = EpcModel.decode(epc24);
             CsvStore.Row row = new CsvStore.Row();
-            row.idRfid = d.idRfid;
-            row.epc = d.epc;
+            row.idRfid = String.valueOf(epc.idRfid);
+            row.epc = tagEpc == null ? "" : tagEpc;
             row.tid = tid == null ? "" : tid;
-            row.rok = d.rok;
-            row.tudu = d.tudu;
-            row.vyhybka = d.vyhybka;
-            row.cast = d.cast;
+            row.rok = epc.year;
+            row.tudu = epc.tudu;
+            row.vyhybka = String.valueOf(epc.vyhybka);
+            row.cast = String.valueOf(epc.cast);
             csvStore.upsert(row);
             persistCsvAsync();
             refreshCsvTable();
@@ -1441,7 +1446,6 @@ public class MainActivity extends AppCompatActivity {
     /** Vrátí access hesla na výchozí hodnotu pro další tag (preset se zkusí automaticky). */
     private void resetAccessPasswordFields() {
         String def = UhfManager.DEFAULT_ACCESS_PASSWORD;
-        etAccessPwd.setText(def);
         etPwdAccess.setText(def);
         etLockAccessPwd.setText(def);
     }
@@ -1617,8 +1621,8 @@ public class MainActivity extends AppCompatActivity {
     private void runTriggerAction() {
         if (workflowRunning || scanDoneAwaitingConfirm || deleteConfirmDialog.getVisibility() == View.VISIBLE) return;
         if (!requirePowerPreset()) return;
-        if (!epc.isValid()) {
-            toast("EPC není validní");
+        if (!epc.areParametersValid()) {
+            toast("Vyplňte všechny parametry (TUDU, výhybka, část, ID)");
             return;
         }
         if (!uhf.isReady()) {
@@ -1637,8 +1641,8 @@ public class MainActivity extends AppCompatActivity {
         step2Failed = false;
         step3Done = false;
         updateStepIndicators();
-        setActionStatus("zapisuji EPC…", COLOR_STATUS_BUSY);
-        doWrite();
+        setActionStatus("načítám tag…", COLOR_STATUS_BUSY);
+        doRecord();
     }
 
     @Override
